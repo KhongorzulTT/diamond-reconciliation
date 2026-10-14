@@ -1,26 +1,97 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Response, Cookie
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
 import pandas as pd
 import io
 import numpy as np
 import urllib.parse
+from typing import Optional
 
-app = FastAPI(title="Регистрийн Дугаараар Тулгадаг Систем")
+app = FastAPI(title="Хэрэглэгчийн эрхтэй Тулгалтын Систем")
 
-# Компаниудын нэр болон Регистрийн дугаарын дата сан
-COMPANY_REGISTRY = {
-    "5560713": "Буянт тэнгис ХХК",
-    "6587275": "Тера стийл ХХК",
-    "7286681": "Гранд рояал стийл ХХК",
-    "5136717": "Түмэн төмөрт групп ХХК",
-    "3632725": "Түмэн тэнгис ХХК",
-    "2770474": "Цээл мөрөн ХХК"
+# 6 Компанийн нягтлангуудын мэдээлэл
+USER_DATABASE = {
+    "buyant@tumen.mn": {"password": "pass123", "rd": "1111111", "company": "Буянт тэнгис ХХК"},
+    "tera@tumen.mn": {"password": "pass123", "rd": "2222222", "company": "Тера стийл ХХК"},
+    "grand@tumen.mn": {"password": "pass123", "rd": "3333333", "company": "Гранд рояал стийл ХХК"},
+    "tumurt@tumen.mn": {"password": "pass123", "rd": "4444444", "company": "Түмэн төмөрт групп ХХК"},
+    "tengis@tumen.mn": {"password": "pass123", "rd": "5555555", "company": "Түмэн тэнгис ХХК"},
+    "tseel@tumen.mn": {"password": "pass123", "rd": "6666666", "company": "Цээл мөрөн ХХК"}
 }
 
+# 1. НЭВТРЭХ ХУУДАС (Загварыг бүрэн шинэчилсэн)
+@app.get("/login", response_class=HTMLResponse)
+def login_page(error: Optional[str] = None):
+    error_html = f'<div style="color: #ef4444; font-size: 14px; margin-bottom: 20px; text-align: center; background: #fee2e2; padding: 10px; border-radius: 10px; font-weight: 500;">{error}</div>' if error else ''
+    
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="mn">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Нэвтрэх - Тулгалтын Систем</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; }
+            .login-card { background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); width: 100%; max-width: 380px; border: 1px solid #e5e7eb; }
+            .logo-area { text-align: center; font-size: 40px; margin-bottom: 10px; }
+            .login-card h2 { text-align: center; margin: 0 0 8px 0; color: #111827; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+            .login-card p { text-align: center; margin: 0 0 25px 0; color: #6b7280; font-size: 14px; }
+            .input-group { margin-bottom: 20px; }
+            .input-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #374151; }
+            .input-group input { width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 12px; box-sizing: border-box; font-size: 15px; background-color: #f9fafb; transition: all 0.2s; }
+            .input-group input:focus { outline: none; border-color: #2563eb; background-color: #ffffff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+            .btn-login { width: 100%; background: #2563eb; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
+            .btn-login:hover { background: #1d4ed8; }
+        </style>
+    </head>
+    <body>
+        <div class="login-card">
+            <div class="logo-area">📊</div>
+            <h2>Системд нэвтрэх</h2>
+            <p>Бараа материалын нэгдсэн тулгалтын сан</p>
+            """ + error_html + """
+            <form action="/login" method="post">
+                <div class="input-group">
+                    <label>Цахим шуудан (Email):</label>
+                    <input type="email" name="email" required placeholder="name@company.mn">
+                </div>
+                <div class="input-group">
+                    <label>Нууц үг:</label>
+                    <input type="password" name="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-login">Нэвтрэх</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
+
+@app.post("/login")
+def do_login(email: str = Form(...), password: str = Form(...)):
+    user = USER_DATABASE.get(email)
+    if not user or user["password"] != password:
+        return RedirectResponse(url="/login?error=Мэйл+эсвэл+нууц+үг+буруу+байна", status_code=303)
+    
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(key="session_user", value=email, httponly=True)
+    return response
+
+@app.get("/logout")
+def do_logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie(key="session_user")
+    return response
+
+# 2. ҮНДСЭН АЖЛЫН ХУУДАС (Дизайн, картуудыг 100% зассан)
 @app.get("/", response_class=HTMLResponse)
-def get_ui():
-    # Регистрийн дугаар болон компанийн нэрийг drop-down сонголт болгох
-    options_html = "".join([f'<option value="{rd}">{name} (РД: {rd})</option>' for rd, name in COMPANY_REGISTRY.items()])
+def get_ui(session_user: Optional[str] = Cookie(None)):
+    if not session_user or session_user not in USER_DATABASE:
+        return RedirectResponse(url="/login", status_code=303)
+        
+    user_info = USER_DATABASE[session_user]
+    company_name = user_info["company"]
+    company_rd = user_info["rd"]
     
     html_content = f"""
     <!DOCTYPE html>
@@ -32,139 +103,59 @@ def get_ui():
         <style>
             body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; color: #1f2937; }}
             .navbar {{ background-color: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
-            .brand {{ font-size: 18px; font-weight: bold; color: #111827; display: flex; align-items: center; gap: 10px; }}
+            .brand {{ font-size: 18px; font-weight: bold; color: #111827; display: flex; align-items: center; gap: 8px; }}
+            .logout-btn {{ color: #ef4444; text-decoration: none; font-size: 14px; font-weight: 600; background: #fee2e2; padding: 8px 14px; border-radius: 10px; transition: background 0.2s; }}
+            .logout-btn:hover {{ background: #fca5a5; }}
             .container {{ max-width: 800px; margin: 40px auto; padding: 0 20px; }}
-            .header-section {{ text-align: center; margin-bottom: 30px; }}
-            .header-section h1 {{ font-size: 26px; font-weight: 800; color: #111827; margin-bottom: 10px; }}
+            .header-section {{ text-align: center; margin-bottom: 35px; }}
+            .header-section h1 {{ font-size: 28px; font-weight: 800; color: #111827; margin-bottom: 10px; letter-spacing: -0.5px; }}
             .header-section p {{ font-size: 15px; color: #4b5563; margin: 0; }}
-            .company-box {{ background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e5e7eb; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
-            .company-box label {{ display: block; font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #374151; }}
-            .select-input {{ width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 15px; background-color: #f9fafb; color: #1f2937; cursor: pointer; }}
-            .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }}
+            .company-info-box {{ background: #eff6ff; padding: 20px; border-radius: 18px; border: 1px solid #bfdbfe; margin-bottom: 30px; text-align: center; font-weight: 700; color: #1e40af; font-size: 16px; box-shadow: 0 2px 4px rgba(37,99,235,0.02); }}
+            .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 35px; }}
             @media (max-width: 640px) {{ .grid {{ grid-template-columns: 1fr; }} }}
-            .card {{ background: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }}
-            .card-title {{ font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #111827; }}
-            .card-desc {{ font-size: 12px; color: #9ca3af; margin-bottom: 15px; }}
-            .file-input {{ width: 100%; font-size: 14px; color: #4b5563; }}
-            .btn-submit {{ width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); transition: background 0.2s; display: flex; justify-content: center; align-items: center; gap: 10px; }}
-            .btn-submit:hover {{ background-color: #1d4ed8; }}
+            .card {{ background: #ffffff; padding: 28px; border-radius: 20px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); box-sizing: border-box; }}
+            .card-title {{ font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #111827; display: flex; align-items: center; gap: 8px; }}
+            .card-desc {{ font-size: 13px; color: #6b7280; margin-bottom: 20px; line-height: 1.4; }}
+            .file-input {{ width: 100%; font-size: 14px; color: #4b5563; padding: 10px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px; cursor: pointer; box-sizing: border-box; }}
+            .btn-submit {{ width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 18px; border-radius: 18px; font-size: 17px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); display: flex; justify-content: center; align-items: center; gap: 10px; transition: all 0.2s; }}
+            .btn-submit:hover {{ background-color: #1d4ed8; transform: translateY(-1px); box-shadow: 0 12px 20px -3px rgba(37, 99, 235, 0.4); }}
+            .btn-submit:active {{ transform: translateY(0); }}
         </style>
     </head>
     <body>
         <div class="navbar">
-            <div class="brand">📊 РД-ААР ТУЛГАХ СИСТЕМ</div>
-            <div style="font-size: 12px; color: #6b7280;">Статус: Баталгаажсан</div>
+            <div class="brand">📊 ТУЛГАЛТЫН НЭГДСЭН СИСТЕМ</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <span style="font-size: 14px; font-weight: 500; color: #374151;">👤 {session_user}</span>
+                <a href="/logout" class="logout-btn">Гарах 🚪</a>
+            </div>
         </div>
 
         <div class="container">
             <div class="header-section">
-                <h1>Бараа материалын РД-аар ялгах тулгалт</h1>
-                <p>Компаниа сонгоход Регистрийн Дугаар (РД)-аар дата автоматаар тусгаарлагдана</p>
+                <h1>Бараа материалын орлого зарлагын тулгалт</h1>
+                <p>Excel файлуудаа хуулж, зөрүүтэй гүйлгээг секундын дотор шүүнэ үү</p>
+            </div>
+
+            <div class="company-info-box">
+                🏢 ИДЭВХТЭЙ АГУУЛАХ: {company_name} <span style="font-weight:500; color:#2563eb; margin-left:10px;">(РД: {company_rd})</span>
             </div>
 
             <form action="/reconcile/" method="post" enctype="multipart/form-data">
-                <!-- Компани болон РД сонгох хэсэг -->
-                <div class="company-box">
-                    <label for="company_rd">🏢 Тулгалт хийх компани (РД):</label>
-                    <select name="company_rd" id="company_rd" class="select-input" required>
-                        <option value="" disabled selected>--- Компани болон РД сонгох ---</option>
-                        {options_html}
-                    </select>
-                </div>
-
                 <div class="grid">
-                    <div class="card" style="border-top: 4px solid #2563eb;">
+                    <!-- Diamond Card -->
+                    <div class="card" style="border-top: 5px solid #2563eb;">
                         <div class="card-title">💎 Diamond Программ</div>
                         <div class="card-desc">Санхүүгийн системээс татсан орлого, зарлагын Excel файл</div>
                         <input type="file" name="diamond_file" required class="file-input"/>
                     </div>
 
-                    <div class="card" style="border-top: 4px solid #7c3aed;">
+                    <!-- 2nd App Card -->
+                    <div class="card" style="border-top: 5px solid #7c3aed;">
                         <div class="card-title">📱 2-р Программ / Касс</div>
                         <div class="card-desc">Борлуулалтын систем эсвэл кассаас татсан Excel файл</div>
                         <input type="file" name="second_app_file" required class="file-input"/>
                     </div>
                 </div>
 
-                <button type="submit" class="btn-submit">
-                    🔄 Тулгалт хийж, РД-аар хаягласан Excel татах
-                </button>
-            </form>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
 
-@app.post("/reconcile/")
-async def reconcile_inventory(
-    company_rd: str = Form(...),
-    diamond_file: UploadFile = File(...),
-    second_app_file: UploadFile = File(...)
-):
-    try:
-        # Регистрийн дугаараар компанийн нэрийг системээс хайж олох
-        company_name = COMPANY_REGISTRY.get(company_rd, "Үл мэдэгдэх компани")
-
-        df_diamond = pd.read_excel(io.BytesIO(await diamond_file.read()))
-        df_second = pd.read_excel(io.BytesIO(await second_app_file.read()))
-        
-        # Огноо форматлах
-        df_diamond['Огноо'] = pd.to_datetime(df_diamond['Огноо']).dt.strftime('%Y-%m-%d')
-        df_second['Огноо'] = pd.to_datetime(df_second['Огноо']).dt.strftime('%Y-%m-%d')
-
-        group_cols = ['Огноо', 'Барааны_Код']
-        
-        dia_cols = {col: 'sum' for col in ['Тоо_Хэмжээ', 'Өртөг'] if col in df_diamond.columns}
-        sec_cols = {col: 'sum' for col in ['Тоо_Хэмжээ', 'Өртөг'] if col in df_second.columns}
-        
-        dia_grouped = df_diamond.groupby(group_cols, as_index=False).agg(dia_cols)
-        sec_grouped = df_second.groupby(group_cols, as_index=False).agg(sec_cols)
-        
-        dia_grouped = dia_grouped.rename(columns={'Тоо_Хэмжээ': 'Diamond_Тоо', 'Өртөг': 'Diamond_Өртөг'})
-        sec_grouped = sec_grouped.rename(columns={'Тоо_Хэмжээ': 'Апп2_Тоо', 'Өртөг': 'Апп2_Өртөг'})
-        
-        merged = pd.merge(dia_grouped, sec_grouped, on=group_cols, how='outer')
-        
-        for c in ['Diamond_Тоо', 'Diamond_Өртөг', 'Апп2_Тоо', 'Апп2_Өртөг']:
-            merged[c] = merged[c].fillna(0) if c in merged.columns else 0
-                
-        merged['Тоо_Зөрүү'] = merged['Diamond_Тоо'] - merged['Апп2_Тоо']
-        merged['Өртөг_Зөрүү'] = merged['Diamond_Өртөг'] - merged['Апп2_Өртөг']
-        
-        conditions = [
-            (merged['Diamond_Тоо'] > 0) & (merged['Апп2_Тоо'] == 0),
-            (merged['Апп2_Тоо'] > 0) & (merged['Diamond_Тоо'] == 0),
-            (merged['Тоо_Зөрүү'] != 0) & (merged['Өртөг_Зөрүү'] == 0),
-            (merged['Өртөг_Зөрүү'] != 0) & (merged['Тоо_Зөрүү'] == 0),
-            (merged['Тоо_Зөрүү'] != 0) & (merged['Өртөг_Зөрүү'] != 0)
-        ]
-        
-        choices = ["2-р Апп дээр гүйлгээ дутуу", "Diamond дээр гүйлгээ дутуу", "Зөвхөн Тоо хэмжээ зөрүүтэй", "Зөвхөн Өртөг үнэ зөрүүтэй", "Тоо болон Өртөг хоёулаа зөрүүтэй"]
-        merged['Төлөв'] = np.select(conditions, choices, default="Таарсан")
-        
-        discrepancies = merged[merged['Төлөв'] != "Таарсан"].copy()
-        
-        # Тайлангийн хуудасны эхэнд Компанийн нэр болон РД-ыг хатуу зааж өгөх
-        discrepancies.insert(0, 'Регистрийн_Дугаар', company_rd)
-        discrepancies.insert(1, 'Компанийн_Нэр', company_name)
-        
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            discrepancies.to_excel(writer, sheet_name='Зөрүүний Тайлан', index=False)
-        output.seek(0)
-        
-        # Файлын нэрийг РД болон Компанийн нэрээр үүсгэх (Монгол үсгийг вэбэд алдаагүй уншуулах тохиргоотой)
-        clean_name = company_name.replace(' ', '_')
-        raw_filename = f"Zuruu_{company_rd}_{clean_name}.xlsx"
-        encoded_filename = urllib.parse.quote(raw_filename)
-        
-        return StreamingResponse(
-            output, 
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={
-                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
