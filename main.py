@@ -8,7 +8,7 @@ from typing import Optional, Dict
 
 app = FastAPI(title="Админ удирдлагатай нэгдсэн систем")
 
-# 6 Компанийн нягтлангуудын албан ёсны мэдээлэл (Регистрийн дугааруудыг суулгасан)
+# 6 Компанийн нягтлангуудын албан ёсны мэдээлэл
 USER_DATABASE = {
     "admin@tumen.mn": {"password": "admin123", "rd": "0000000", "company": "Төв Администратор", "role": "ADMIN", "active": True},
     "buyant@tumen.mn": {"password": "pass123", "rd": "5560713", "company": "Буянт тэнгис ХХК", "role": "USER", "active": True},
@@ -156,7 +156,7 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
         </tr>
         """
 
-    # АДМИН ПАНЕЛИЙГ АЛДААГҮЙ УНШИХ ШИНЭ СТАНДАРТ АРГА
+    # Админ панер
     admin_panel_html = ""
     if is_admin:
         user_manage_rows = ""
@@ -165,7 +165,8 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
             status_text = "🟢 Идэвхтэй" if u_data["active"] else "🔴 Хаагдсан"
             btn_toggle_text = "Эрх Хаах" if u_data["active"] else "Эрх Нээх"
             
-            # f-string хаалтны алдаанаас сэргийлж мөрүүдийг энгийн конкатенациар холбоно
             user_manage_rows += "<tr style='border-bottom: 1px solid #e5e7eb;'>"
             user_manage_rows += f"<td style='padding: 10px; font-size: 14px;'>{u_data['company']}</td>"
             user_manage_rows += f"<td style='padding: 10px; font-size: 14px;'>{u_email}</td>"
+            user_manage_rows += f"<td style='padding: 10px; font-size: 14px; font-weight:bold;'>{u_data['password']}</td>"
+            user_manage_rows += f"<td style='padding: 10px; font-size: 14px;'>{status_text}</td>"
