@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Cookie
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Response, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 import pandas as pd
 import io
@@ -8,7 +8,7 @@ from typing import Optional, Dict
 
 app = FastAPI(title="Админ удирдлагатай нэгдсэн систем")
 
-# Системийн хэрэглэгчдийн динамик дата сан (Админ гараар нэмж хасах боломжтой)
+# Системийн хэрэглэгчдийн динамик дата сан
 USER_DATABASE = {
     "admin@tumen.mn": {"password": "admin123", "rd": "0000000", "company": "Төв Администратор", "role": "ADMIN", "active": True},
     "buyant@tumen.mn": {"password": "pass123", "rd": "5560713", "company": "Буянт тэнгис ХХК", "role": "USER", "active": True},
@@ -19,33 +19,34 @@ USER_DATABASE = {
     "tseel@tumen.mn": {"password": "pass123", "rd": "2770474", "company": "Цээл мөрөн ХХК", "role": "USER", "active": True}
 }
 
-# Компаниудын статус бүртгэл
 COMPANY_STATUS = {rd: "❌ Оруулаагүй" for rd in ["5560713", "5136717", "6587275", "7286681", "3632725", "2770474"]}
 RECONCILIATION_RESULTS: Dict[str, Dict] = {}
 
+# 1. НЭВТРЭХ ХУУДАС (Login Page)
 @app.get("/login", response_class=HTMLResponse)
 def login_page(error: Optional[str] = None):
     error_html = f'<div style="color: #ef4444; font-size: 14px; margin-bottom: 20px; text-align: center; background: #fee2e2; padding: 12px; border-radius: 12px; font-weight: 500;">{error}</div>' if error else ''
-    return HTMLResponse(content="""
+    
+    html_content = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>Нэвтрэх</title>
         <style>
-            body { font-family: -apple-system, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; }
-            .login-card { background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; border: 1px solid #e5e7eb; box-sizing: border-box; }
-            .login-card h2 { text-align: center; margin: 0 0 25px 0; color: #111827; }
-            .input-group { margin-bottom: 20px; }
-            .input-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #374151; }
-            .input-group input { width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 12px; box-sizing: border-box; }
-            .btn-login { width: 100%; background: #2563eb; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
+            body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; }}
+            .login-card {{ background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; border: 1px solid #e5e7eb; box-sizing: border-box; }}
+            .login-card h2 {{ text-align: center; margin: 0 0 25px 0; color: #111827; }}
+            .input-group {{ margin-bottom: 20px; }}
+            .input-group label {{ display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #374151; }}
+            .input-group input {{ width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 12px; box-sizing: border-box; }}
+            .btn-login {{ width: 100%; background: #2563eb; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }}
         </style>
     </head>
     <body>
         <div class="login-card">
             <h2 style="text-align:center;">📊 Нэгдсэн Систем</h2>
-            """ + error_html + """
+            {error_html}
             <form action="/login" method="post">
                 <div class="input-group">
                     <label>Цахим шуудан (Email):</label>
@@ -60,7 +61,8 @@ def login_page(error: Optional[str] = None):
         </div>
     </body>
     </html>
-    """)
+    """
+    return HTMLResponse(content=html_content)
 
 @app.post("/login")
 def do_login(email: str = Form(...), password: str = Form(...)):
@@ -80,7 +82,7 @@ def do_logout():
     response.delete_cookie(key="session_user")
     return response
 
-# АДМИН АЛХМУУД: Хэрэглэгч нэмэх, устгах, төлөв өөрчлөх
+# Админ үйлдлүүд
 @app.post("/admin/add-user")
 def add_user(email: str = Form(...), password: str = Form(...), rd: str = Form(...), company: str = Form(...), session_user: Optional[str] = Cookie(None)):
     if not session_user or USER_DATABASE.get(session_user, {}).get("role") != "ADMIN":
@@ -106,7 +108,7 @@ def delete_user(email: str, session_user: Optional[str] = Cookie(None)):
         del USER_DATABASE[email]
     return RedirectResponse(url="/", status_code=303)
 
-
+# 2. ҮНДСЭН ХЯНАЛТЫН САМБАР (Dashboard & Admin View)
 @app.get("/", response_class=HTMLResponse)
 def get_ui(session_user: Optional[str] = Cookie(None)):
     if not session_user or session_user not in USER_DATABASE:
@@ -119,7 +121,7 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
     
     result = RECONCILIATION_RESULTS.get(session_user, {"total": 0, "matched": 0, "discrepancy_count": 0, "rows": []})
     
-    # 1. Тулгалтын хүснэгтийн мөрүүд
+    # Тулгалтын хүснэгтийн мөрүүд үүсгэх
     table_rows_html = ""
     for row in result["rows"][:50]:
         bg_color = "#fef2f2" if "дутуу" in row["Төлөв"] else "#fffb001a"
@@ -139,7 +141,7 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
     elif not result["rows"]:
         table_rows_html = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#9ca3af;">Дээд талын картуудад Excel файлуудаа хуулж тулгалт хийнэ үү.</td></tr>'
 
-    # 2. Нягтлангуудын оруулалтын төлөвийн нэгдсэн жагсаалт
+    # Компаниудын мэдээлэл оруулалтын нэгдсэн жагсаалт
     company_status_html = ""
     for u_email, u_data in USER_DATABASE.items():
         if u_data["role"] == "ADMIN": continue
@@ -154,7 +156,7 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
         </tr>
         """
 
-    # 3. ШИНЭ: ЗӨВХӨН АДМИНД ХАРАГДАХ ХЭРЭГЛЭГЧ УДИРДАХ СЕКЦ
+    # Зөвхөн админд харагдах хэрэглэгч удирдах цэс бэлдэх
     admin_panel_html = ""
     if is_admin:
         user_manage_rows = ""
