@@ -6,7 +6,6 @@ import numpy as np
 
 app = FastAPI(title="Diamond болон 2-р Програмын Тулгалтын Систем")
 
-# 1. Хэрэглэгчид харагдах гоё дизайнтай нүүр хуудас (HTML + Tailwind CSS)
 @app.get("/", response_class=HTMLResponse)
 def get_ui():
     html_content = """
@@ -16,64 +15,64 @@ def get_ui():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Бараа Материалын Тулгалтын Систем</title>
-        <script src="https://tailwindcss.com"></script>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; bg-color: #f9fafb; margin: 0; padding: 0; background-color: #f3f4f6; color: #1f2937; }
+            .navbar { background-color: #ffffff; border-b: 1px solid #e5e7eb; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+            .brand { font-size: 18px; font-weight: bold; color: #111827; display: flex; align-items: center; gap: 10px; }
+            .user-info { font-size: 13px; color: #6b7280; font-weight: 500; }
+            .container { max-width: 800px; mx-auto; margin: 40px auto; padding: 0 20px; }
+            .header-section { text-align: center; margin-bottom: 40px; }
+            .header-section h1 { font-size: 28px; font-weight: 800; color: #111827; margin-bottom: 10px; }
+            .header-section p { font-size: 16px; color: #4b5563; margin: 0; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+            @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+            .card { background: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+            .card-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; color: #111827; }
+            .card-desc { font-size: 12px; color: #9ca3af; margin-bottom: 15px; }
+            .file-input { width: 100%; font-size: 14px; color: #4b5563; }
+            .btn-submit { width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); transition: background 0.2s; display: flex; justify-content: center; align-items: center; gap: 10px; }
+            .btn-submit:hover { background-color: #1d4ed8; }
+        </style>
     </head>
-    <body class="bg-gray-50 font-sans antialiased text-gray-800">
-        <!-- Толгой хэсэг -->
-        <header class="bg-white border-b border-gray-200 sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <span class="text-2xl">📊</span>
-                    <span class="font-bold text-lg tracking-tight text-gray-900">ТУЛГАЛТЫН НЭГДСЭН СИСТЕМ</span>
-                </div>
-                <div class="text-sm text-gray-500 font-medium">Хэрэглэгч: Түмэн Төмөр Групп</div>
-            </div>
-        </header>
+    <body>
+        <div class="navbar">
+            <div class="brand">📊 ТУЛГАЛТЫН НЭГДСЭН СИСТЕМ</div>
+            <div class="user-info">Байгууллага: Түмэн Төмөр Групп</div>
+        </div>
 
-        <!-- Үндсэн хэсэг -->
-        <main class="max-w-4xl mx-auto px-4 py-12">
-            <div class="text-center mb-10">
-                <h1 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">Бараа материалын орлого зарлагын тулгалт</h1>
-                <p class="mt-3 text-lg text-gray-500">Diamond санхүүгийн программ болон 2-р аппликейшны Excel файлыг хооронд нь тулгаж, зөрүүг олох систем</p>
+        <div class="container">
+            <div class="header-section">
+                <h1>Бараа материалын орлого зарлагын тулгалт</h1>
+                <p>Хоёр системийн Excel файлыг хооронд нь тулгаж, зөрүүг олох ухаалаг туслах</p>
             </div>
 
-            <form action="/reconcile/" method="post" enctype="multipart/form-data" class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Diamond Файл оруулах -->
-                    <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center space-x-3 mb-4">
-                            <div class="p-2 bg-blue-50 text-blue-600 rounded-lg text-xl">💎</div>
-                            <h2 class="text-lg font-bold text-gray-900">Diamond Программ</h2>
-                        </div>
-                        <p class="text-xs text-gray-400 mb-3">Diamond системээс татсан орлого, зарлагын Excel файл</p>
-                        <input type="file" name="diamond_file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"/>
+            <form action="/reconcile/" method="post" enctype="multipart/form-data">
+                <div class="grid">
+                    <!-- Diamond Card -->
+                    <div class="card" style="border-top: 4px solid #2563eb;">
+                        <div class="card-title">💎 Diamond Программ</div>
+                        <div class="card-desc">Санхүүгийн системээс татсан орлого, зарлагын Excel файл</div>
+                        <input type="file" name="diamond_file" required class="file-input"/>
                     </div>
 
-                    <!-- 2-р Програм Файл оруулах -->
-                    <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex items-center space-x-3 mb-4">
-                            <div class="p-2 bg-purple-50 text-purple-600 rounded-lg text-xl">📱</div>
-                            <h2 class="text-lg font-bold text-gray-900">2-р Программ / Касс</h2>
-                        </div>
-                        <p class="text-xs text-gray-400 mb-3">Борлуулалтын систем эсвэл кассаас татсан Excel файл</p>
-                        <input type="file" name="second_app_file" required class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 cursor-pointer"/>
+                    <!-- 2nd App Card -->
+                    <div class="card" style="border-top: 4px solid #7c3aed;">
+                        <div class="card-title">📱 2-р Программ / Касс</div>
+                        <div class="card-desc">Борлуулалтын систем эсвэл кассаас татсан Excel файл</div>
+                        <input type="file" name="second_app_file" required class="file-input"/>
                     </div>
                 </div>
 
-                <!-- Идэвхжүүлэх товч -->
-                <div class="pt-4">
-                    <button type="submit" class="w-full flex justify-center py-4 px-6 border border-transparent rounded-2xl shadow-sm text-lg font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                        🔄 Тулгалт хийж, Зөрүүний Excel татах
-                    </button>
-                </div>
+                <button type="submit" class="btn-submit">
+                    🔄 Тулгалт хийж, Зөрүүний Excel татах
+                </button>
             </form>
-        </main>
+        </div>
     </body>
     </html>
     """
     return HTMLResponse(content=html_content)
 
-# 2. Арын албаны тулгалт хийх логик (Хэвээрээ үлдэнэ)
 @app.post("/reconcile/")
 async def reconcile_inventory(
     diamond_file: UploadFile = File(...),
@@ -83,7 +82,6 @@ async def reconcile_inventory(
         df_diamond = pd.read_excel(io.BytesIO(await diamond_file.read()))
         df_second = pd.read_excel(io.BytesIO(await second_app_file.read()))
         
-        # Баганын нэрсийг шалгаж, форматанд оруулах
         df_diamond['Огноо'] = pd.to_datetime(df_diamond['Огноо']).dt.strftime('%Y-%m-%d')
         df_second['Огноо'] = pd.to_datetime(df_second['Огноо']).dt.strftime('%Y-%m-%d')
 
