@@ -1,36 +1,35 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Response, Cookie
-from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 import pandas as pd
 import io
-import numpy as np
-import urllib.parse
 from typing import Optional
 
-app = FastAPI(title="Хэрэглэгчийн эрхтэй Тулгалтын Систем")
+app = FastAPI(title="Компаниудын нэгдсэн дата цуглуулах систем")
 
-# 6 Компанийн нягтлангуудын албан ёсны мэдээлэл (Регистрийн дугаартай хавсаргав)
-# Нэвтрэх нууц үгийг нь 'pass123' гэж тохируулав. (Та хүсвэл засаж болно)
+# 6 Компанийн мэдээлэл
 USER_DATABASE = {
-    "buyant@tumen.mn": {"password": "pass123", "rd": "5560713", "company": "Буянт тэнгис ХХК"},
-    "tera@tumen.mn": {"password": "pass123", "rd": "6587275", "company": "Тера стийл ХХК"},
-    "grand@tumen.mn": {"password": "pass123", "rd": "7286681", "company": "Гранд рояал стийл ХХК"},
-    "tumurt@tumen.mn": {"password": "pass123", "rd": "5136717", "company": "Түмэн төмөрт групп ХХК"},
-    "tengis@tumen.mn": {"password": "pass123", "rd": "3632725", "company": "Түмэн тэнгис ХХК"},
-    "tseel@tumen.mn": {"password": "pass123", "rd": "2770474", "company": "Цээл мөрөн ХХК"}
+    "buyant@tumen.mn": {"password": "pass123", "rd": "5046244", "company": "Буянт тэнгис ХХК"},
+    "tera@tumen.mn": {"password": "pass123", "rd": "5324112", "company": "Тера стийл ХХК"},
+    "grand@tumen.mn": {"password": "pass123", "rd": "5118742", "company": "Гранд рояал стийл ХХК"},
+    "tumurt@tumen.mn": {"password": "pass123", "rd": "2664531", "company": "Түмэн төмөрт групп ХХК"},
+    "tengis@tumen.mn": {"password": "pass123", "rd": "4125883", "company": "Түмэн тэнгис ХХК"},
+    "tseel@tumen.mn": {"password": "pass123", "rd": "6032147", "company": "Цээл мөрөн ХХК"}
 }
 
-# 1. НЭВТРЭХ ХУУДАС (Login Page Дизайн)
+# Системийн төв өгөгдлийн сан (Бүх компанийн дата энд РД-аар ялгарч хадгалагдана)
+CENTRAL_DATABASE = []
+
+# 1. НЭВТРЭХ ХУУДАС
 @app.get("/login", response_class=HTMLResponse)
 def login_page(error: Optional[str] = None):
     error_html = f'<div style="color: #ef4444; font-size: 14px; margin-bottom: 20px; text-align: center; background: #fee2e2; padding: 12px; border-radius: 12px; font-weight: 500;">{error}</div>' if error else ''
-    
     html_content = """
     <!DOCTYPE html>
     <html lang="mn">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Нэвтрэх - Тулгалтын Систем</title>
+        <title>Нэвтрэх - Нэгдсэн систем</title>
         <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; }
             .login-card { background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; border: 1px solid #e5e7eb; box-sizing: border-box; }
@@ -40,15 +39,14 @@ def login_page(error: Optional[str] = None):
             .input-group { margin-bottom: 20px; }
             .input-group label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #374151; }
             .input-group input { width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 12px; box-sizing: border-box; font-size: 15px; background-color: #f9fafb; }
-            .btn-login { width: 100%; background: #2563eb; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
-            .btn-login:hover { background: #1d4ed8; }
+            .btn-login { width: 100%; background: #2563eb; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }
         </style>
     </head>
     <body>
         <div class="login-card">
-            <div class="logo-area">📊</div>
+            <div class="logo-area">🏢</div>
             <h2>Системд нэвтрэх</h2>
-            <p>Бараа материалын нэгдсэн тулгалтын сан</p>
+            <p>Компаниудын нэгдсэн дата оруулах сан</p>
             """ + error_html + """
             <form action="/login" method="post">
                 <div class="input-group">
@@ -72,7 +70,6 @@ def do_login(email: str = Form(...), password: str = Form(...)):
     user = USER_DATABASE.get(email)
     if not user or user["password"] != password:
         return RedirectResponse(url="/login?error=Мэйл+эсвэл+нууц+үг+буруу+байна", status_code=303)
-    
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(key="session_user", value=email, httponly=True)
     return response
@@ -83,9 +80,9 @@ def do_logout():
     response.delete_cookie(key="session_user")
     return response
 
-# 2. ҮНДСЭН АЖЛЫН ХУУДАС (Main Workspace Дизайн)
+# 2. ҮНДСЭН АЖЛЫН ХУУДАС (Зөвхөн өөрийн компанидаа дата оруулах ганц карттай)
 @app.get("/", response_class=HTMLResponse)
-def get_ui(session_user: Optional[str] = Cookie(None)):
+def get_ui(session_user: Optional[str] = Cookie(None), message: Optional[str] = None):
     if not session_user or session_user not in USER_DATABASE:
         return RedirectResponse(url="/login", status_code=303)
         
@@ -93,77 +90,91 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
     company_name = user_info["company"]
     company_rd = user_info["rd"]
     
+    msg_html = f'<div style="background:#d1fae5; color:#065f46; padding:15px; border-radius:14px; text-align:center; font-weight:600; margin-bottom:20px;">{message}</div>' if message else ''
+    
     html_content = """
     <!DOCTYPE html>
     <html lang="mn">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Бараа Материалын Тулгалтын Систем</title>
+        <title>Дата оруулах цонх</title>
         <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; color: #1f2937; }
             .navbar { background-color: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-            .brand { font-size: 18px; font-weight: bold; color: #111827; display: flex; align-items: center; gap: 8px; }
-            .logout-btn { color: #ef4444; text-decoration: none; font-size: 14px; font-weight: 600; background: #fee2e2; padding: 8px 14px; border-radius: 10px; transition: background 0.2s; }
-            .logout-btn:hover { background: #fca5a5; }
-            .container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+            .brand { font-size: 18px; font-weight: bold; color: #111827; }
+            .logout-btn { color: #ef4444; text-decoration: none; font-size: 14px; font-weight: 600; background: #fee2e2; padding: 8px 14px; border-radius: 10px; }
+            .container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
             .header-section { text-align: center; margin-bottom: 35px; }
-            .header-section h1 { font-size: 28px; font-weight: 800; color: #111827; margin-bottom: 10px; }
-            .header-section p { font-size: 15px; color: #4b5563; margin: 0; }
+            .header-section h1 { font-size: 26px; font-weight: 800; color: #111827; }
             .company-info-box { background: #eff6ff; padding: 20px; border-radius: 18px; border: 1px solid #bfdbfe; margin-bottom: 30px; text-align: center; font-weight: 700; color: #1e40af; font-size: 16px; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 35px; }
-            @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-            .card { background: #ffffff; padding: 28px; border-radius: 20px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); box-sizing: border-box; }
-            .card-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; color: #111827; display: flex; align-items: center; gap: 8px; }
-            .card-desc { font-size: 13px; color: #6b7280; margin-bottom: 20px; line-height: 1.4; }
-            .file-input { width: 100%; font-size: 14px; color: #4b5563; padding: 10px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px; cursor: pointer; box-sizing: border-box; }
-            .btn-submit { width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 18px; border-radius: 18px; font-size: 17px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); display: flex; justify-content: center; align-items: center; gap: 10px; transition: all 0.2s; }
-            .btn-submit:hover { background-color: #1d4ed8; transform: translateY(-1px); }
+            .card { background: #ffffff; padding: 30px; border-radius: 20px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-top: 5px solid #2563eb; }
+            .card-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: #111827; }
+            .card-desc { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+            .file-input { width: 100%; font-size: 14px; color: #4b5563; padding: 15px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px; cursor: pointer; box-sizing: border-box; }
+            .btn-submit { width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); }
         </style>
     </head>
     <body>
         <div class="navbar">
-            <div class="brand">📊 ТУЛГАЛТЫН НЭГДСЭН СИСТЕМ</div>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <span style="font-size: 14px; font-weight: 500; color: #374151;">👤 """ + session_user + """</span>
+            <div class="brand">📊 КОМПАНИУДЫН НЭГДҮҮР САН</div>
+            <div>
+                <span style="font-size: 14px; margin-right: 15px; font-weight:500;">👤 """ + session_user + """</span>
                 <a href="/logout" class="logout-btn">Гарах 🚪</a>
             </div>
         </div>
 
         <div class="container">
             <div class="header-section">
-                <h1>Бараа материалын орлого зарлагын тулгалт</h1>
-                <p>Excel файлуудаа хуулж, зөрүүтэй гүйлгээг секундын дотор шүүнэ үү</p>
+                <h1>Бараа материалын дата оруулах</h1>
             </div>
+
+            """ + msg_html + """
 
             <div class="company-info-box">
-                🏢 ИДЭВХТЭЙ АГУУЛАХ: """ + company_name + """ <span style="font-weight:500; color:#2563eb; margin-left:10px;">(РД: """ + company_rd + """)</span>
+                🏢 ХАРЬЯАЛАХ КОМПАНИ: """ + company_name + """ (РД: """ + company_rd + """)
             </div>
 
-            <form action="/reconcile/" method="post" enctype="multipart/form-data">
-                <div class="grid">
-                    <!-- Diamond Card -->
-                    <div class="card" style="border-top: 5px solid #2563eb;">
-                        <div class="card-title">💎 Diamond Программ</div>
-                        <div class="card-desc">Санхүүгийн системээс татсан орлого, зарлагын Excel файл</div>
-                        <input type="file" name="diamond_file" required class="file-input"/>
-                    </div>
-
-                    <!-- 2nd App Card -->
-                    <div class="card" style="border-top: 5px solid #7c3aed;">
-                        <div class="card-title">📱 2-р Программ / Касс</div>
-                        <div class="card-desc">Борлуулалтын систем эсвэл кассаас татсан Excel файл</div>
-                        <input type="file" name="second_app_file" required class="file-input"/>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-submit">
-                    🔄 Тулгалт хийж, Тайлан татах
-                </button>
-            </form>
+            <div class="card">
+                <form action="/upload-data/" method="post" enctype="multipart/form-data">
+                    <div class="card-title">📁 Бараа материалын файл оруулах</div>
+                    <div class="card-desc">Тухайн компанийн орлого, зарлагын Excel файлыг сонгож оруулна уу.</div>
+                    <input type="file" name="excel_file" required class="file-input"/>
+                    <button type="submit" class="btn-submit">📤 Сонгосон компанийн датаг илгээх</button>
+                </form>
+            </div>
         </div>
     </body>
     </html>
     """
     return HTMLResponse(content=html_content)
 
+# 3. ДАТА ХҮЛЭЭН АВЧ НЭГДСЭН САНД БҮРТГЭХ
+@app.post("/upload-data/")
+async def upload_data(
+    excel_file: UploadFile = File(...),
+    session_user: Optional[str] = Cookie(None)
+):
+    if not session_user or session_user not in USER_DATABASE:
+        raise HTTPException(status_code=401, detail="Нэвтрэх эрх баталгаажаагүй.")
+        
+    user_info = USER_DATABASE[session_user]
+    company_rd = user_info["rd"]
+    company_name = user_info["company"]
+
+    try:
+        df = pd.read_excel(io.BytesIO(await excel_file.read()))
+        
+        # Оруулсан мөр бүрт тухайн компанийн РД болон Нэрийг автоматаар хаяглаж зооно
+        df.insert(0, 'Регистрийн_Дугаар', company_rd)
+        df.insert(1, 'Компанийн_Нэр', company_name)
+        
+        # Төв дата бааз руу нэмж нэгтгэх
+        global CENTRAL_DATABASE
+        CENTRAL_DATABASE.extend(df.to_dict(orient="records"))
+        
+        url_msg = urllib.parse.quote(f"{company_name}-ийн дата нэгдсэн санд амжилттай бүртгэгдлээ!")
+        return RedirectResponse(url=f"/?message={url_msg}", status_code=303)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Файлыг уншихад алдаа гарлаа: {str(e)}")
