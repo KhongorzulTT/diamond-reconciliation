@@ -8,7 +8,8 @@ from typing import Optional
 
 app = FastAPI(title="Хэрэглэгчийн эрхтэй Тулгалтын Систем")
 
-# 6 Компанийн нягтлангуудын мэдээлэл
+# 6 Компанийн нягтлангуудын мэдээлэл (Дата сан)
+# Түр хугацаанд нууц үгийг нь 'pass123' гэж тохируулав. РД-уудыг өөрийнхөөрөө солиорой.
 USER_DATABASE = {
     "buyant@tumen.mn": {"password": "pass123", "rd": "1111111", "company": "Буянт тэнгис ХХК"},
     "tera@tumen.mn": {"password": "pass123", "rd": "2222222", "company": "Тера стийл ХХК"},
@@ -18,7 +19,7 @@ USER_DATABASE = {
     "tseel@tumen.mn": {"password": "pass123", "rd": "6666666", "company": "Цээл мөрөн ХХК"}
 }
 
-# 1. НЭВТРЭХ ХУУДАС (Загварыг бүрэн шинэчилсэн)
+# 1. НЭВТРЭХ ХУУДАС (Login Page)
 @app.get("/login", response_class=HTMLResponse)
 def login_page(error: Optional[str] = None):
     error_html = f'<div style="color: #ef4444; font-size: 14px; margin-bottom: 20px; text-align: center; background: #fee2e2; padding: 10px; border-radius: 10px; font-weight: 500;">{error}</div>' if error else ''
@@ -83,7 +84,7 @@ def do_logout():
     response.delete_cookie(key="session_user")
     return response
 
-# 2. ҮНДСЭН АЖЛЫН ХУУДАС (Дизайн, картуудыг 100% зассан)
+# 2. ҮНДСЭН АЖЛЫН ХУУДАС (Маш гоё дизайнтай болгосон хэсэг)
 @app.get("/", response_class=HTMLResponse)
 def get_ui(session_user: Optional[str] = Cookie(None)):
     if not session_user or session_user not in USER_DATABASE:
@@ -119,7 +120,6 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
             .file-input {{ width: 100%; font-size: 14px; color: #4b5563; padding: 10px; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 12px; cursor: pointer; box-sizing: border-box; }}
             .btn-submit {{ width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 18px; border-radius: 18px; font-size: 17px; font-weight: bold; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); display: flex; justify-content: center; align-items: center; gap: 10px; transition: all 0.2s; }}
             .btn-submit:hover {{ background-color: #1d4ed8; transform: translateY(-1px); box-shadow: 0 12px 20px -3px rgba(37, 99, 235, 0.4); }}
-            .btn-submit:active {{ transform: translateY(0); }}
         </style>
     </head>
     <body>
@@ -143,19 +143,16 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
 
             <form action="/reconcile/" method="post" enctype="multipart/form-data">
                 <div class="grid">
-                    <!-- Diamond Card -->
                     <div class="card" style="border-top: 5px solid #2563eb;">
                         <div class="card-title">💎 Diamond Программ</div>
                         <div class="card-desc">Санхүүгийн системээс татсан орлого, зарлагын Excel файл</div>
                         <input type="file" name="diamond_file" required class="file-input"/>
                     </div>
 
-                    <!-- 2nd App Card -->
                     <div class="card" style="border-top: 5px solid #7c3aed;">
                         <div class="card-title">📱 2-р Программ / Касс</div>
                         <div class="card-desc">Борлуулалтын систем эсвэл кассаас татсан Excel файл</div>
                         <input type="file" name="second_app_file" required class="file-input"/>
                     </div>
                 </div>
-
 
