@@ -1,14 +1,27 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.responses import StreamingResponse, HTMLResponse
 import pandas as pd
 import io
 import numpy as np
 
-app = FastAPI(title="Diamond болон 2-р Програмын Тулгалтын Систем")
+app = FastAPI(title="Олон Компанийн Бараа Материал Тулгалтын Систем")
+
+# Хэрэглэгч болон Компаниудын жагсаалт
+COMPANIES = [
+    "Буянт тэнгис ХХК",
+    "Тера стийл ХХК",
+    "Гранд рояал стийл ХХК",
+    "Түмэн төмөрт групп ХХК",
+    "Түмэн тэнгис ХХК",
+    "Цээл мөрөн ХХК"
+]
 
 @app.get("/", response_class=HTMLResponse)
 def get_ui():
-    html_content = """
+    # Компаниудын drop-down сонголтыг үүсгэх
+    options_html = "".join([f'<option value="{comp}">{comp}</option>' for comp in COMPANIES])
+    
+    html_content = f"""
     <!DOCTYPE html>
     <html lang="mn">
     <head>
@@ -16,37 +29,48 @@ def get_ui():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Бараа Материалын Тулгалтын Систем</title>
         <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; bg-color: #f9fafb; margin: 0; padding: 0; background-color: #f3f4f6; color: #1f2937; }
-            .navbar { background-color: #ffffff; border-b: 1px solid #e5e7eb; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-            .brand { font-size: 18px; font-weight: bold; color: #111827; display: flex; align-items: center; gap: 10px; }
-            .user-info { font-size: 13px; color: #6b7280; font-weight: 500; }
-            .container { max-width: 800px; mx-auto; margin: 40px auto; padding: 0 20px; }
-            .header-section { text-align: center; margin-bottom: 40px; }
-            .header-section h1 { font-size: 28px; font-weight: 800; color: #111827; margin-bottom: 10px; }
-            .header-section p { font-size: 16px; color: #4b5563; margin: 0; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-            .card { background: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-            .card-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; color: #111827; }
-            .card-desc { font-size: 12px; color: #9ca3af; margin-bottom: 15px; }
-            .file-input { width: 100%; font-size: 14px; color: #4b5563; }
-            .btn-submit { width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); transition: background 0.2s; display: flex; justify-content: center; align-items: center; gap: 10px; }
-            .btn-submit:hover { background-color: #1d4ed8; }
+            body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; color: #1f2937; }}
+            .navbar {{ background-color: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
+            .brand {{ font-size: 18px; font-weight: bold; color: #111827; display: flex; align-items: center; gap: 10px; }}
+            .container {{ max-width: 800px; margin: 40px auto; padding: 0 20px; }}
+            .header-section {{ text-align: center; margin-bottom: 30px; }}
+            .header-section h1 {{ font-size: 26px; font-weight: 800; color: #111827; margin-bottom: 10px; }}
+            .header-section p {{ font-size: 15px; color: #4b5563; margin: 0; }}
+            .company-box {{ background: #ffffff; padding: 20px; border-radius: 16px; border: 1px solid #e5e7eb; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }}
+            .company-box label {{ display: block; font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #374151; }}
+            .select-input {{ width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 15px; background-color: #f9fafb; color: #1f2937; cursor: pointer; }}
+            .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }}
+            @media (max-width: 640px) {{ .grid {{ grid-template-columns: 1fr; }} }}
+            .card {{ background: #ffffff; padding: 25px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }}
+            .card-title {{ font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #111827; }}
+            .card-desc {{ font-size: 12px; color: #9ca3af; margin-bottom: 15px; }}
+            .file-input {{ width: 100%; font-size: 14px; color: #4b5563; }}
+            .btn-submit {{ width: 100%; background-color: #2563eb; color: #ffffff; border: none; padding: 16px; border-radius: 14px; font-size: 16px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2); transition: background 0.2s; display: flex; justify-content: center; align-items: center; gap: 10px; }}
+            .btn-submit:hover {{ background-color: #1d4ed8; }}
         </style>
     </head>
     <body>
         <div class="navbar">
-            <div class="brand">📊 ТУЛГАЛТЫН НЭГДСЭН СИСТЕМ</div>
-            <div class="user-info">Байгууллага: Түмэн Төмөр Групп</div>
+            <div class="brand">📊 НЭГДСЭН ТУЛГАЛТЫН СИСТЕМ</div>
+            <div style="font-size: 12px; color: #6b7280;">Статус: Бэлэн</div>
         </div>
 
         <div class="container">
             <div class="header-section">
                 <h1>Бараа материалын орлого зарлагын тулгалт</h1>
-                <p>Хоёр системийн Excel файлыг хооронд нь тулгаж, зөрүүг олох ухаалаг туслах</p>
+                <p>Компаниа сонгож, Excel файлуудаа хуулан зөрүүгээ секундэд шалгана уу</p>
             </div>
 
             <form action="/reconcile/" method="post" enctype="multipart/form-data">
+                <!-- Компани сонгох хэсэг -->
+                <div class="company-box">
+                    <label for="company_name">🏢 Тулгалт хийж буй компаниа сонгоно уу:</label>
+                    <select name="company_name" id="company_name" class="select-input" required>
+                        <option value="" disabled selected>--- Компани сонгох ---</option>
+                        {options_html}
+                    </select>
+                </div>
+
                 <div class="grid">
                     <!-- Diamond Card -->
                     <div class="card" style="border-top: 4px solid #2563eb;">
@@ -64,7 +88,7 @@ def get_ui():
                 </div>
 
                 <button type="submit" class="btn-submit">
-                    🔄 Тулгалт хийж, Зөрүүний Excel татах
+                    🔄 Тулгалт хийж, Тайлан татах
                 </button>
             </form>
         </div>
@@ -75,6 +99,7 @@ def get_ui():
 
 @app.post("/reconcile/")
 async def reconcile_inventory(
+    company_name: str = Form(...),
     diamond_file: UploadFile = File(...),
     second_app_file: UploadFile = File(...)
 ):
@@ -82,6 +107,7 @@ async def reconcile_inventory(
         df_diamond = pd.read_excel(io.BytesIO(await diamond_file.read()))
         df_second = pd.read_excel(io.BytesIO(await second_app_file.read()))
         
+        # Огноо хөрвүүлэлт
         df_diamond['Огноо'] = pd.to_datetime(df_diamond['Огноо']).dt.strftime('%Y-%m-%d')
         df_second['Огноо'] = pd.to_datetime(df_second['Огноо']).dt.strftime('%Y-%m-%d')
 
@@ -117,15 +143,21 @@ async def reconcile_inventory(
         
         discrepancies = merged[merged['Төлөв'] != "Таарсан"].copy()
         
+        # Тайлан дотор аль компанийн тулгалт вэ гэдгийг зааж өгөх багана нэмэх
+        discrepancies.insert(0, 'Компани', company_name)
+        
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             discrepancies.to_excel(writer, sheet_name='Тулгалтын Зөрүү', index=False)
         output.seek(0)
         
+        # Файлын нэрэнд компанийн нэрийг хавсаргаж илгээнэ
+        file_name = f"reconciliation_report_{company_name.replace(' ', '_')}.xlsx"
+        
         return StreamingResponse(
             output, 
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": "attachment; filename=reconciliation_report.xlsx"}
+            headers={"Content-Disposition": f"attachment; filename={file_name}"}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
