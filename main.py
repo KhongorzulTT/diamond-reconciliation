@@ -11,12 +11,12 @@ app = FastAPI(title="Хэрэглэгчийн эрхтэй Тулгалтын С
 # 6 Компанийн нягтлангуудын албан ёсны мэдээлэл (Регистрийн дугаартай хавсаргав)
 # Нэвтрэх нууц үгийг нь 'pass123' гэж тохируулав. (Та хүсвэл засаж болно)
 USER_DATABASE = {
-    "buyant@tumen.mn": {"password": "pass123", "rd": "5046244", "company": "Буянт тэнгис ХХК"},
-    "tera@tumen.mn": {"password": "pass123", "rd": "5324112", "company": "Тера стийл ХХК"},
-    "grand@tumen.mn": {"password": "pass123", "rd": "5118742", "company": "Гранд рояал стийл ХХК"},
-    "tumurt@tumen.mn": {"password": "pass123", "rd": "2664531", "company": "Түмэн төмөрт групп ХХК"},
-    "tengis@tumen.mn": {"password": "pass123", "rd": "4125883", "company": "Түмэн тэнгис ХХК"},
-    "tseel@tumen.mn": {"password": "pass123", "rd": "6032147", "company": "Цээл мөрөн ХХК"}
+    "buyant@tumen.mn": {"password": "pass123", "rd": "5560713", "company": "Буянт тэнгис ХХК"},
+    "tera@tumen.mn": {"password": "pass123", "rd": "6587275", "company": "Тера стийл ХХК"},
+    "grand@tumen.mn": {"password": "pass123", "rd": "7286681", "company": "Гранд рояал стийл ХХК"},
+    "tumurt@tumen.mn": {"password": "pass123", "rd": "5136717", "company": "Түмэн төмөрт групп ХХК"},
+    "tengis@tumen.mn": {"password": "pass123", "rd": "3632725", "company": "Түмэн тэнгис ХХК"},
+    "tseel@tumen.mn": {"password": "pass123", "rd": "2770474", "company": "Цээл мөрөн ХХК"}
 }
 
 # 1. НЭВТРЭХ ХУУДАС (Login Page Дизайн)
