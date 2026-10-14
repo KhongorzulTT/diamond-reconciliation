@@ -3,23 +3,24 @@ from fastapi.responses import StreamingResponse, HTMLResponse
 import pandas as pd
 import io
 import numpy as np
+import urllib.parse
 
-app = FastAPI(title="Олон Компанийн Бараа Материал Тулгалтын Систем")
+app = FastAPI(title="Регистрийн Дугаараар Тулгадаг Систем")
 
-# Хэрэглэгч болон Компаниудын жагсаалт
-COMPANIES = [
-    "Буянт тэнгис ХХК",
-    "Тера стийл ХХК",
-    "Гранд рояал стийл ХХК",
-    "Түмэн төмөрт групп ХХК",
-    "Түмэн тэнгис ХХК",
-    "Цээл мөрөн ХХК"
-]
+# Компаниудын нэр болон Регистрийн дугаарын дата сан
+COMPANY_REGISTRY = {
+    "5560713": "Буянт тэнгис ХХК",
+    "6587275": "Тера стийл ХХК",
+    "7286681": "Гранд рояал стийл ХХК",
+    "5136717": "Түмэн төмөрт групп ХХК",
+    "3632725": "Түмэн тэнгис ХХК",
+    "2770474": "Цээл мөрөн ХХК"
+}
 
 @app.get("/", response_class=HTMLResponse)
 def get_ui():
-    # Компаниудын drop-down сонголтыг үүсгэх
-    options_html = "".join([f'<option value="{comp}">{comp}</option>' for comp in COMPANIES])
+    # Регистрийн дугаар болон компанийн нэрийг drop-down сонголт болгох
+    options_html = "".join([f'<option value="{rd}">{name} (РД: {rd})</option>' for rd, name in COMPANY_REGISTRY.items()])
     
     html_content = f"""
     <!DOCTYPE html>
@@ -51,35 +52,33 @@ def get_ui():
     </head>
     <body>
         <div class="navbar">
-            <div class="brand">📊 НЭГДСЭН ТУЛГАЛТЫН СИСТЕМ</div>
-            <div style="font-size: 12px; color: #6b7280;">Статус: Бэлэн</div>
+            <div class="brand">📊 РД-ААР ТУЛГАХ СИСТЕМ</div>
+            <div style="font-size: 12px; color: #6b7280;">Статус: Баталгаажсан</div>
         </div>
 
         <div class="container">
             <div class="header-section">
-                <h1>Бараа материалын орлого зарлагын тулгалт</h1>
-                <p>Компаниа сонгож, Excel файлуудаа хуулан зөрүүгээ секундэд шалгана уу</p>
+                <h1>Бараа материалын РД-аар ялгах тулгалт</h1>
+                <p>Компаниа сонгоход Регистрийн Дугаар (РД)-аар дата автоматаар тусгаарлагдана</p>
             </div>
 
             <form action="/reconcile/" method="post" enctype="multipart/form-data">
-                <!-- Компани сонгох хэсэг -->
+                <!-- Компани болон РД сонгох хэсэг -->
                 <div class="company-box">
-                    <label for="company_name">🏢 Тулгалт хийж буй компаниа сонгоно уу:</label>
-                    <select name="company_name" id="company_name" class="select-input" required>
-                        <option value="" disabled selected>--- Компани сонгох ---</option>
+                    <label for="company_rd">🏢 Тулгалт хийх компани (РД):</label>
+                    <select name="company_rd" id="company_rd" class="select-input" required>
+                        <option value="" disabled selected>--- Компани болон РД сонгох ---</option>
                         {options_html}
                     </select>
                 </div>
 
                 <div class="grid">
-                    <!-- Diamond Card -->
                     <div class="card" style="border-top: 4px solid #2563eb;">
                         <div class="card-title">💎 Diamond Программ</div>
                         <div class="card-desc">Санхүүгийн системээс татсан орлого, зарлагын Excel файл</div>
                         <input type="file" name="diamond_file" required class="file-input"/>
                     </div>
 
-                    <!-- 2nd App Card -->
                     <div class="card" style="border-top: 4px solid #7c3aed;">
                         <div class="card-title">📱 2-р Программ / Касс</div>
                         <div class="card-desc">Борлуулалтын систем эсвэл кассаас татсан Excel файл</div>
@@ -88,7 +87,7 @@ def get_ui():
                 </div>
 
                 <button type="submit" class="btn-submit">
-                    🔄 Тулгалт хийж, Тайлан татах
+                    🔄 Тулгалт хийж, РД-аар хаягласан Excel татах
                 </button>
             </form>
         </div>
@@ -99,15 +98,18 @@ def get_ui():
 
 @app.post("/reconcile/")
 async def reconcile_inventory(
-    company_name: str = Form(...),
+    company_rd: str = Form(...),
     diamond_file: UploadFile = File(...),
     second_app_file: UploadFile = File(...)
 ):
     try:
+        # Регистрийн дугаараар компанийн нэрийг системээс хайж олох
+        company_name = COMPANY_REGISTRY.get(company_rd, "Үл мэдэгдэх компани")
+
         df_diamond = pd.read_excel(io.BytesIO(await diamond_file.read()))
         df_second = pd.read_excel(io.BytesIO(await second_app_file.read()))
         
-        # Огноо хөрвүүлэлт
+        # Огноо форматлах
         df_diamond['Огноо'] = pd.to_datetime(df_diamond['Огноо']).dt.strftime('%Y-%m-%d')
         df_second['Огноо'] = pd.to_datetime(df_second['Огноо']).dt.strftime('%Y-%m-%d')
 
@@ -143,21 +145,26 @@ async def reconcile_inventory(
         
         discrepancies = merged[merged['Төлөв'] != "Таарсан"].copy()
         
-        # Тайлан дотор аль компанийн тулгалт вэ гэдгийг зааж өгөх багана нэмэх
-        discrepancies.insert(0, 'Компани', company_name)
+        # Тайлангийн хуудасны эхэнд Компанийн нэр болон РД-ыг хатуу зааж өгөх
+        discrepancies.insert(0, 'Регистрийн_Дугаар', company_rd)
+        discrepancies.insert(1, 'Компанийн_Нэр', company_name)
         
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            discrepancies.to_excel(writer, sheet_name='Тулгалтын Зөрүү', index=False)
+            discrepancies.to_excel(writer, sheet_name='Зөрүүний Тайлан', index=False)
         output.seek(0)
         
-        # Файлын нэрэнд компанийн нэрийг хавсаргаж илгээнэ
-        file_name = f"reconciliation_report_{company_name.replace(' ', '_')}.xlsx"
+        # Файлын нэрийг РД болон Компанийн нэрээр үүсгэх (Монгол үсгийг вэбэд алдаагүй уншуулах тохиргоотой)
+        clean_name = company_name.replace(' ', '_')
+        raw_filename = f"Zuruu_{company_rd}_{clean_name}.xlsx"
+        encoded_filename = urllib.parse.quote(raw_filename)
         
         return StreamingResponse(
             output, 
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={file_name}"}
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+            }
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
