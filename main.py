@@ -117,7 +117,7 @@ def get_ui(session_user: Optional[str] = Cookie(None), message: Optional[str] = 
     </head>
     <body>
         <div class="navbar">
-            <div class="brand">📊 КОМПАНИУДЫН НЭГДҮҮР САН</div>
+            <div class="brand">📊 Салбар хоорондын бараа материал</div>
             <div>
                 <span style="font-size: 14px; margin-right: 15px; font-weight:500;">👤 """ + session_user + """</span>
                 <a href="/logout" class="logout-btn">Гарах 🚪</a>
