@@ -6,7 +6,7 @@ import numpy as np
 import urllib.parse
 from typing import Optional, Dict
 
-app = FastAPI(title="Админ удирдлагатай нэгдсэн систем")
+app = FastAPI(title="Reconciliation System")
 
 # 6 Компанийн нягтлангуудын албан ёсны мэдээлэл
 USER_DATABASE = {
@@ -25,52 +25,51 @@ RECONCILIATION_RESULTS: Dict[str, Dict] = {}
 # 1. НЭВТРЭХ ХУУДАС (Login Page)
 @app.get("/login", response_class=HTMLResponse)
 def login_page(error: Optional[str] = None):
-    error_html = f'<div style="color: #ef4444; font-size: 14px; margin-bottom: 20px; text-align: center; background: #fee2e2; padding: 12px; border-radius: 12px; font-weight: 500;">{error}</div>' if error else ''
+    error_msg = f'<div style="color:red;margin-bottom:15px;text-align:center;">{error}</div>' if error else ''
     
-    html_content = f"""
+    html_content = """
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Нэвтрэх</title>
+        <title>Login</title>
         <style>
-            body {{ font-family: -apple-system, sans-serif; margin: 0; padding: 0; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; }}
-            .login-card {{ background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); width: 100%; max-width: 380px; border: 1px solid #e5e7eb; box-sizing: border-box; }}
-            .login-card h2 {{ text-align: center; margin: 0 0 25px 0; color: #111827; }}
-            .input-group {{ margin-bottom: 20px; }}
-            .input-group label {{ display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #374151; }}
-            .input-group input {{ width: 100%; padding: 14px; border: 1px solid #d1d5db; border-radius: 12px; box-sizing: border-box; }}
-            .btn-login {{ width: 100%; background: #2563eb; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; }}
+            body { font-family: sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+            .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 320px; }
+            .field { margin-bottom: 15px; }
+            .field label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+            .field input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+            .btn { width: 100%; background: #2563eb; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         </style>
     </head>
     <body>
-        <div class="login-card">
-            <h2 style="text-align:center;">📊 Нэгдсэн Систем</h2>
-            {error_html}
+        <div class="card">
+            <h2 style="text-align:center; margin-top:0;">📊 Системд нэвтрэх</h2>
+            """ + error_msg + """
             <form action="/login" method="post">
-                <div class="input-group">
+                <div class="field">
                     <label>Цахим шуудан (Email):</label>
-                    <input type="email" name="email" required placeholder="username@tumen.mn">
+                    <input type="email" name="email" required>
                 </div>
-                <div class="input-group">
+                <div class="field">
                     <label>Нууц үг:</label>
-                    <input type="password" name="password" required placeholder="••••••••">
+                    <input type="password" name="password" required>
                 </div>
-                <button type="submit" class="btn-login">Нэвтрэх</button>
+                <button type="submit" class="btn">Нэвтрэх</button>
             </form>
         </div>
     </body>
     </html>
     """
-    return HTMLResponse(content=html_content)
+    return html_content
 
 @app.post("/login")
 def do_login(email: str = Form(...), password: str = Form(...)):
     user = USER_DATABASE.get(email)
     if not user or user["password"] != password:
-        return RedirectResponse(url="/login?error=Мэйл+эсвэл+нууц+үг+буруу+байна", status_code=303)
+        return RedirectResponse(url="/login?error=Email+esvel+nuuts+ug+buruu", status_code=303)
     if not user.get("active", True):
-        return RedirectResponse(url="/login?error=Таны+эрх+хязгаарлагдсан+байна", status_code=303)
+        return RedirectResponse(url="/login?error=Erkh+haagdsan", status_code=303)
         
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(key="session_user", value=email, httponly=True)
@@ -86,7 +85,7 @@ def do_logout():
 @app.post("/admin/add-user")
 def add_user(email: str = Form(...), password: str = Form(...), rd: str = Form(...), company: str = Form(...), session_user: Optional[str] = Cookie(None)):
     if not session_user or USER_DATABASE.get(session_user, {}).get("role") != "ADMIN":
-        raise HTTPException(status_code=403, detail="Зөвхөн админ нэвтрэх эрхтэй")
+        raise HTTPException(status_code=403, detail="Forbidden")
     USER_DATABASE[email] = {"password": password, "rd": rd, "company": company, "role": "USER", "active": True}
     if rd not in COMPANY_STATUS:
         COMPANY_STATUS[rd] = "❌ Оруулаагүй"
@@ -95,7 +94,7 @@ def add_user(email: str = Form(...), password: str = Form(...), rd: str = Form(.
 @app.get("/admin/toggle-user/{email}")
 def toggle_user(email: str, session_user: Optional[str] = Cookie(None)):
     if not session_user or USER_DATABASE.get(session_user, {}).get("role") != "ADMIN":
-        raise HTTPException(status_code=403, detail="Зөвхөн админ нэвтрэх эрхтэй")
+        raise HTTPException(status_code=403, detail="Forbidden")
     if email in USER_DATABASE and email != "admin@tumen.mn":
         USER_DATABASE[email]["active"] = not USER_DATABASE[email]["active"]
     return RedirectResponse(url="/", status_code=303)
@@ -103,12 +102,12 @@ def toggle_user(email: str, session_user: Optional[str] = Cookie(None)):
 @app.get("/admin/delete-user/{email}")
 def delete_user(email: str, session_user: Optional[str] = Cookie(None)):
     if not session_user or USER_DATABASE.get(session_user, {}).get("role") != "ADMIN":
-        raise HTTPException(status_code=403, detail="Зөвхөн админ нэвтрэх эрхтэй")
+        raise HTTPException(status_code=403, detail="Forbidden")
     if email in USER_DATABASE and email != "admin@tumen.mn":
         del USER_DATABASE[email]
     return RedirectResponse(url="/", status_code=303)
 
-# 2. ҮНДСЭН ХЯНАЛТЫН САМБАР (Dashboard & Admin View)
+# 2. ҮНДСЭН ХЯНАЛТЫН САМБАР (Workspace)
 @app.get("/", response_class=HTMLResponse)
 def get_ui(session_user: Optional[str] = Cookie(None)):
     if not session_user or session_user not in USER_DATABASE:
@@ -121,52 +120,62 @@ def get_ui(session_user: Optional[str] = Cookie(None)):
     
     result = RECONCILIATION_RESULTS.get(session_user, {"total": 0, "matched": 0, "discrepancy_count": 0, "rows": []})
     
-    # Тулгалтын хүснэгтийн мөрүүд үүсгэх
-    table_rows_html = ""
+    table_rows = ""
     for row in result["rows"][:50]:
-        bg_color = "#fef2f2" if "дутуу" in row["Төлөв"] else "#fffb001a"
-        table_rows_html += f"""
-        <tr style="background: {bg_color}; border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 12px; font-size: 14px;">{row['Огноо']}</td>
-            <td style="padding: 12px; font-size: 14px; font-weight:600;">{row['Baarany_Kod']}</td>
-            <td style="padding: 12px; font-size: 14px; text-align:right;">{int(row['Diamond_Too'])}</td>
-            <td style="padding: 12px; font-size: 14px; text-align:right;">{int(row['App2_Too'])}</td>
-            <td style="padding: 12px; font-size: 14px; text-align:right; color:#ef4444; font-weight:600;">{int(row['Too_Zuruu'])}</td>
-            <td style="padding: 12px; font-size: 14px; text-align:right; color:#ef4444;">{row['Urtug_Zuruu']:,.2f}</td>
-            <td style="padding: 12px; font-size: 14px; color:#b91c1c; font-weight:500;">{row['Tuluv']}</td>
-        </tr>
-        """
+        table_rows += f"<tr style='border-bottom:1px solid #ddd;'>"
+        table_rows += f"<td style='padding:10px;'>{row['Огноо']}</td>"
+        table_rows += f"<td style='padding:10px;font-weight:bold;'>{row['Baarany_Kod']}</td>"
+        table_rows += f"<td style='padding:10px;text-align:right;'>{int(row['Diamond_Too'])}</td>"
+        table_rows += f"<td style='padding:10px;text-align:right;'>{int(row['App2_Too'])}</td>"
+        table_rows += f"<td style='padding:10px;text-align:right;color:red;'>{int(row['Too_Zuruu'])}</td>"
+        table_rows += f"<td style='padding:10px;text-align:right;color:red;'>{row['Urtug_Zuruu']:,.2f}</td>"
+        table_rows += f"<td style='padding:10px;color:brown;'>{row['Tuluv']}</td>"
+        table_rows += "</tr>"
+        
     if not result["rows"] and result["total"] > 0:
-        table_rows_html = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#059669; font-weight:600;">🎉 Ямар нэгэн зөрүүтэй баримт олдсонгүй.</td></tr>'
+        table_rows = '<tr><td colspan="7" style="text-align:center;padding:20px;color:green;">🎉 Зөрүүгүй таарлаа.</td></tr>'
     elif not result["rows"]:
-        table_rows_html = '<tr><td colspan="7" style="text-align:center; padding:30px; color:#9ca3af;">Дээд талын картуудад Excel файлуудаа хуулж тулгалт хийнэ үү.</td></tr>'
+        table_rows = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#777;">Файлуудаа хуулж тулгалт хийнэ үү.</td></tr>'
 
-    # Компаниудын мэдээлэл оруулалтын нэгдсэн жагсаалт
-    company_status_html = ""
+    status_rows = ""
     for u_email, u_data in USER_DATABASE.items():
         if u_data["role"] == "ADMIN": continue
-        status_now = COMPANY_STATUS.get(u_data["rd"], "❌ Оруулаагүй")
-        badge_style = "background:#d1fae5; color:#065f46;" if "Дата" in status_now else "background:#fee2e2; color:#991b1b;"
-        company_status_html += f"""
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-            <td style="padding: 12px; font-size: 14px; font-weight:600; color:#374151;">{u_data['company']}</td>
-            <td style="padding: 12px; font-size: 14px; color:#6b7280;">{u_data['rd']}</td>
-            <td style="padding: 12px; font-size: 14px; color:#6b7280;">{u_email}</td>
-            <td style="padding: 12px; font-size: 13px;"><span style="padding:4px 10px; border-radius:8px; font-weight:bold; {badge_style}">{status_now}</span></td>
-        </tr>
-        """
+        st = COMPANY_STATUS.get(u_data["rd"], "❌ Оруулаагүй")
+        status_rows += f"<tr style='border-bottom:1px solid #ddd;'>"
+        status_rows += f"<td style='padding:10px;font-weight:bold;'>{u_data['company']}</td>"
+        status_rows += f"<td style='padding:10px;'>{u_data['rd']}</td>"
+        status_rows += f"<td style='padding:10px;'>{u_email}</td>"
+        status_rows += f"<td style='padding:10px;'>{st}</td>"
+        status_rows += "</tr>"
 
-    # Админ панер
-    admin_panel_html = ""
+    admin_section = ""
     if is_admin:
-        user_manage_rows = ""
+        manage_rows = ""
         for u_email, u_data in USER_DATABASE.items():
             if u_email == "admin@tumen.mn": continue
-            status_text = "🟢 Идэвхтэй" if u_data["active"] else "🔴 Хаагдсан"
-            btn_toggle_text = "Эрх Хаах" if u_data["active"] else "Эрх Нээх"
+            act = "🟢 Идэвхтэй" if u_data["active"] else "🔴 Хаагдсан"
+            t_txt = "Хаах" if u_data["active"] else "Нээх"
+            manage_rows += f"<tr style='border-bottom:1px solid #ddd;'><td>{u_data['company']}</td><td>{u_email}</td><td>{u_data['password']}</td><td>{act}</td>"
+            manage_rows += f"<td><a href='/admin/toggle-user/{u_email}' style='margin-right:10px;'>{t_txt}</a><a href='/admin/delete-user/{u_email}' style='color:red;'>Устгах</a></td></tr>"
             
-            user_manage_rows += "<tr style='border-bottom: 1px solid #e5e7eb;'>"
-            user_manage_rows += f"<td style='padding: 10px; font-size: 14px;'>{u_data['company']}</td>"
-            user_manage_rows += f"<td style='padding: 10px; font-size: 14px;'>{u_email}</td>"
-            user_manage_rows += f"<td style='padding: 10px; font-size: 14px; font-weight:bold;'>{u_data['password']}</td>"
-            user_manage_rows += f"<td style='padding: 10px; font-size: 14px;'>{status_text}</td>"
+        admin_section = """
+        <div style="background:white;padding:20px;border-radius:12px;margin-top:30px;border:1px solid #ccc;">
+            <h3>🛠️ Хэрэглэгчдийг удирдах (Админ цэс)</h3>
+            <form action="/admin/add-user" method="post" style="display:flex;gap:10px;margin-bottom:20px;">
+                <input type="email" name="email" placeholder="Email" required style="padding:6px;width:20%;">
+                <input type="text" name="password" placeholder="Нууц үг" required style="padding:6px;width:15%;">
+                <input type="text" name="rd" placeholder="Регистр" required style="padding:6px;width:15%;">
+                <input type="text" name="company" placeholder="Компани" required style="padding:6px;width:30%;">
+                <button type="submit" style="padding:6px 15px;">➕ Нэмэх</button>
+            </form>
+            <table style="width:100%;border-collapse:collapse;text-align:left;">
+                <thead><tr style="background:#eee;"><th>Компани</th><th>Мэйл</th><th>Нууц үг</th><th>Төлөв</th><th>Үйлдэл</th></tr></thead>
+                <tbody>""" + manage_rows + """</tbody>
+            </table>
+        </div>
+        """
+
+    workspace = ""
+    if not is_admin:
+        dl_btn = f'<a href="/download-excel/" style="background:green;color:white;padding:8px 12px;border-radius:6px;text-decoration:none;font-size:14px;">📥 Excel-ээр татах</a>' if result['discrepancy_count'] > 0 else ''
+        workspace = """
